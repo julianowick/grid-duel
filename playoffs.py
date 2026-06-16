@@ -1,4 +1,3 @@
-import tkinter as tk
 import random
 from game_engine import GameApp
 
@@ -37,14 +36,11 @@ def run_round(rcompetitors, third = False):
         r = 1
         while r <= rounds:
             print(f">>> Round {r} fight!")
-            root = tk.Tk()
-            root.title("Grid Duel Game")
             # Swap players for balance
             if r % 2 == 0:
-                app = GameApp(root, agent1, agent2)
+                app = GameApp(agent1, agent2, headless=True)
             else:
-                app = GameApp(root, agent2, agent1)
-            root.mainloop()
+                app = GameApp(agent2, agent1, headless=True)
             winner = app.get_winner()
             #winner = random.choice([agent1, agent2, None])
             if winner is not None:
@@ -86,7 +82,7 @@ competitors = [
     "agent_rand_defend",
     "agent_rand_objective",
     "agent_rand_hunt",
-    "agent_rand_spell_seeker",
+    "agent_rand_spell",
 ]
 # Flag to enable/disable random agents wining matches
 trial = True
