@@ -3,6 +3,7 @@ from PIL import Image, ImageTk
 import importlib
 import random
 import logging
+import pygame
 
 # Game configuration
 BOARD_SIZE = 16
@@ -34,6 +35,17 @@ class GameApp:
         total_width = BOARD_SIZE * CELL_SIZE + 2 * INFO_PANEL_WIDTH
         self.canvas = tk.Canvas(root, width=total_width, height=BOARD_SIZE * CELL_SIZE)
         self.canvas.pack()
+        # Initialize audio
+        try:
+            pygame.mixer.init(frequency=44100, size=-16, channels=2)
+            pygame.mixer.stop()
+            self.main_theme = pygame.mixer.Sound("audio/main-theme.mp3")
+            self.match_end = pygame.mixer.Sound("audio/match-end.mp3")
+            self.main_theme.play(loops=-1)
+            self.audio_enabled = True
+        except Exception as e:
+            logger.warning(f"Audio initialization failed: {e}")
+            self.audio_enabled = False
         # Try to load agents from modules
         try:
             self.agent1 = importlib.import_module(agent1_module).get_move
@@ -110,6 +122,13 @@ class GameApp:
         self.draw_board()
         # Start game loop after delay
         self.root.after(DELAY_MS, self.play_turn)
+        # Bind window close to stop audio
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self):
+        if self.audio_enabled:
+            pygame.mixer.stop()
+        self.root.destroy()
 
     def place_walls(self):
         count = 0
@@ -378,6 +397,10 @@ class GameApp:
         return winner
 
     def show_end_screen(self, reason, winner=None):
+        # Stop main theme and play match-end sound
+        if self.audio_enabled:
+            self.main_theme.stop()
+            self.match_end.play(loops=-1)
         # Icons
         reason_icon = self.images[reason]
         if winner == "Player 1":
