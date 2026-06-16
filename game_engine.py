@@ -45,7 +45,7 @@ class GameApp:
             self.audio_enabled = True
         except Exception as e:
             logger.warning(f"Audio initialization failed: {e}")
-            self.audio_enabled = False
+        self.audio_enabled = False
         # Try to load agents from modules
         try:
             self.agent1 = importlib.import_module(agent1_module).get_move
@@ -58,7 +58,7 @@ class GameApp:
         wall_size = (CELL_SIZE, CELL_SIZE) # Wall icon takes full cell size
         badge_size = (CELL_SIZE*3, CELL_SIZE*3) # Player icon size at the side panels top position
         player_size = (CELL_SIZE*6, CELL_SIZE*6) # Player icon size at end screen
-        reason_size = (CELL_SIZE*2, CELL_SIZE*2) # Reason icon size at end screen
+        reason_size = (CELL_SIZE*4, CELL_SIZE*4) # Reason icon size at end screen
         self.images = {
             "Player 1": ImageTk.PhotoImage(Image.open("figures/elf.png").resize(image_size)),
             "Player 1 badge": ImageTk.PhotoImage(Image.open("figures/elf.png").resize(badge_size)),
@@ -613,5 +613,5 @@ if __name__ == "__main__":
     # Example usage
     root = tk.Tk()
     root.title("Grid Duel Game")
-    app = GameApp(root, "agent_rand_spell", "agent_rand_spell")
+    app = GameApp(root, "agent_rand_objective", "agent_rand_objective")
     root.mainloop()
