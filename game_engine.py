@@ -17,7 +17,7 @@ DELAY_MS = 500
 INFO_PANEL_WIDTH = CELL_SIZE * 8
 FONT_LARGE = CELL_SIZE
 FONT_MEDIUM = int(FONT_LARGE * 0.875)
-FONT_SMALL = int(FONT_MEDIUM * 0.875)
+FONT_SMALL = int(FONT_MEDIUM * 0.60)
 FONT_TINY = FONT_SMALL // 2
 
 BOARD_BG = (220, 188, 141)
@@ -128,12 +128,12 @@ class GameApp:
         }
 
     def _init_fonts(self):
+        font_path = "fonts/MedievalSharp-Regular.ttf"
         self.fonts = {
-            'large': pygame.font.Font(None, FONT_LARGE),
-            'medium': pygame.font.Font(None, FONT_MEDIUM),
-            'medium_bold': pygame.font.Font(None, FONT_MEDIUM),
-            'small': pygame.font.Font(None, FONT_SMALL),
-            'tiny': pygame.font.Font(None, FONT_TINY),
+            'large': pygame.font.Font(font_path, FONT_LARGE),
+            'medium': pygame.font.Font(font_path, FONT_MEDIUM),
+            'small': pygame.font.Font(font_path, FONT_SMALL),
+            'tiny': pygame.font.Font(font_path, FONT_TINY),
         }
 
     def _init_game_state(self):
@@ -354,8 +354,8 @@ class GameApp:
 
         cx = w // 2
         self._blit_centered(self.images["Player 1 badge"], cx, CELL_SIZE * 2)
-        self._draw_text("Player 1", 'medium_bold', PLAYER1_COLOR, cx, CELL_SIZE * 4)
-        self._draw_text(f"({self.name1})", 'medium_bold', PLAYER1_COLOR, cx, CELL_SIZE * 6)
+        self._draw_text("Player 1", 'medium', PLAYER1_COLOR, cx, CELL_SIZE * 4)
+        self._draw_text(f"({self.name1})", 'small', PLAYER1_COLOR, cx, CELL_SIZE * 6)
         self._draw_text(f"Strength: {self.strength1}", 'small', BLACK, cx, CELL_SIZE * 8)
         if self.turn % 2 == 0:
             self._draw_text("> Your Turn", 'small', BLACK, cx, CELL_SIZE * 9)
@@ -370,8 +370,8 @@ class GameApp:
 
         cx = x0 + w // 2
         self._blit_centered(self.images["Player 2 badge"], cx, CELL_SIZE * 2)
-        self._draw_text("Player 2", 'medium_bold', PLAYER2_COLOR, cx, CELL_SIZE * 4)
-        self._draw_text(f"({self.name2})", 'medium_bold', PLAYER2_COLOR, cx, CELL_SIZE * 6)
+        self._draw_text("Player 2", 'medium', PLAYER2_COLOR, cx, CELL_SIZE * 4)
+        self._draw_text(f"({self.name2})", 'small', PLAYER2_COLOR, cx, CELL_SIZE * 6)
         self._draw_text(f"Strength: {self.strength2}", 'small', BLACK, cx, CELL_SIZE * 8)
         if self.turn % 2 == 1:
             self._draw_text("> Your Turn", 'small', BLACK, cx, CELL_SIZE * 9)
