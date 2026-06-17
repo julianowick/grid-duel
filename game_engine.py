@@ -9,7 +9,7 @@ BOARD_SIZE = 16
 CELL_SIZE = 32
 NUM_ITEMS = 20
 ITEM_VALUES = [-3, -2, -1, 1, 2, 3]
-NUM_WALLS = 15
+NUM_WALLS = 20
 SPELL_TYPES = ["freeze", "speed", "invisibility"]
 SPELL_DURATION = 5
 MAX_TURNS = 120
@@ -34,7 +34,7 @@ WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(levelname)s: %(message)s"
 )
 logger = logging.getLogger("grid_duel")
@@ -168,30 +168,75 @@ class GameApp:
         self.player1_memory = []
         self.player2_memory = []
 
+    def _is_connected(self):
+        from collections import deque
+        visited = [[False] * BOARD_SIZE for _ in range(BOARD_SIZE)]
+        q = deque([(0, 0)])
+        visited[0][0] = True
+        while q:
+            x, y = q.popleft()
+            for dx, dy in ((0, 1), (1, 0), (0, -1), (-1, 0)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                    if not visited[nx][ny] and self.board[nx][ny] != "W":
+                        visited[nx][ny] = True
+                        q.append((nx, ny))
+        for x in range(BOARD_SIZE):
+            for y in range(BOARD_SIZE):
+                if self.board[x][y] != "W" and not visited[x][y]:
+                    return False
+        return True
+
     def place_walls(self):
-        count = 0
-        while count < NUM_WALLS // 3:
-            x, y = random.randint(3, BOARD_SIZE - 3), random.randint(3, BOARD_SIZE - 3)
+        max_attempts = NUM_WALLS * 20
+        attempts = 0
+
+        # First two walls are guaranteed to be at the left and right edges to force more interesing maps
+        x = random.randint(1, BOARD_SIZE - 2)
+        y = random.randint(1, BOARD_SIZE - 2)
+        self.board[0][x] = "W"
+        self.items.append((0, x, "wall"))
+        self.board[BOARD_SIZE - 1][y] = "W"
+        self.items.append((BOARD_SIZE - 1, y, "wall"))
+        logger.debug(f"Placed initial walls at: (0, {x}) and ({BOARD_SIZE - 1}, {y})")
+        count = 2
+        
+        while count < NUM_WALLS and attempts < max_attempts:
+            attempts += 1
+            if count > 0 and random.random() < 0.4:
+                wall_positions = [(x, y) for y in range(BOARD_SIZE) for x in range(BOARD_SIZE) if self.board[x][y] == "W"]
+                random.shuffle(wall_positions)
+                placed = False
+                for wx, wy in wall_positions:
+                    directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+                    random.shuffle(directions)
+                    for dx, dy in directions:
+                        nx, ny = wx + dx, wy + dy
+                        if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                            if (nx, ny) not in [(0, 0), (BOARD_SIZE - 1, BOARD_SIZE - 1)] and self.board[nx][ny] == 0:
+                                self.board[nx][ny] = "W"
+                                if self._is_connected():
+                                    self.items.append((nx, ny, "wall"))
+                                    count += 1
+                                    placed = True
+                                    break
+                                else:
+                                    self.board[nx][ny] = 0
+                    if placed:
+                        break
+                if placed:
+                    continue
+
+            x = random.randint(0, BOARD_SIZE - 1)
+            y = random.randint(0, BOARD_SIZE - 1)
             if (x, y) not in [(0, 0), (BOARD_SIZE - 1, BOARD_SIZE - 1)] and self.board[x][y] == 0:
                 self.board[x][y] = "W"
-                self.items.append((x, y, "wall"))
-                count += 1
-        while count < NUM_WALLS:
-            wall_positions = [(x, y) for y in range(BOARD_SIZE) for x in range(BOARD_SIZE) if self.board[x][y] == "W"]
-            if not wall_positions:
-                break
-            wx, wy = random.choice(wall_positions)
-            directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-            random.shuffle(directions)
-            for dx, dy in directions:
-                nx, ny = wx + dx, wy + dy
-                if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
-                    if (nx, ny) not in [(0, 0), (BOARD_SIZE - 1, BOARD_SIZE - 1)] and self.board[nx][ny] == 0:
-                        self.board[nx][ny] = "W"
-                        self.items.append((nx, ny, "wall"))
-                        count += 1
-                        break
-
+                if self._is_connected():
+                    self.items.append((x, y, "wall"))
+                    count += 1
+                else:
+                    self.board[x][y] = 0
+        
     def place_items(self):
         count = 0
         while count < NUM_ITEMS:
@@ -617,4 +662,4 @@ class GameApp:
 
 
 if __name__ == "__main__":
-    GameApp("agent_bfs", "agent_rand_objective")
+    GameApp("agent_bfs", "agent_rand_defend")
