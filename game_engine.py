@@ -19,6 +19,7 @@ FONT_LARGE = CELL_SIZE
 FONT_MEDIUM = int(FONT_LARGE * 0.875)
 FONT_SMALL = int(FONT_MEDIUM * 0.60)
 FONT_TINY = FONT_SMALL // 2
+FONT_TITLE = int(FONT_LARGE * 1.75)
 
 BOARD_BG = (220, 188, 141)
 BOARD_OUTLINE = (149, 104, 65)
@@ -32,6 +33,8 @@ FREEZE_ALPHA = 128
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
+GOLD = (212, 175, 55)
+DARK_BG = (25, 25, 40)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -72,18 +75,16 @@ class GameApp:
 
         self._init_game_state()
 
-        if not self.headless:
-            self.draw_board()
-
         self.run()
 
     def _init_audio(self):
         try:
             pygame.mixer.init(frequency=44100, size=-16, channels=2)
             pygame.mixer.stop()
+            self.lobby_theme = pygame.mixer.Sound("audio/lobby-theme.mp3")
             self.main_theme = pygame.mixer.Sound("audio/main-theme.mp3")
             self.match_end = pygame.mixer.Sound("audio/match-end.mp3")
-            self.main_theme.play(loops=-1)
+            self.lobby_theme.play(loops=-1)
             self.audio_enabled = True
         except Exception as e:
             logger.warning(f"Audio initialization failed: {e}")
@@ -130,6 +131,7 @@ class GameApp:
     def _init_fonts(self):
         font_path = "fonts/MedievalSharp-Regular.ttf"
         self.fonts = {
+            'title': pygame.font.Font(font_path, FONT_TITLE),
             'large': pygame.font.Font(font_path, FONT_LARGE),
             'medium': pygame.font.Font(font_path, FONT_MEDIUM),
             'small': pygame.font.Font(font_path, FONT_SMALL),
@@ -139,6 +141,7 @@ class GameApp:
     def _init_game_state(self):
         self.turn = 0
         self.game_over = False
+        self.start_screen_showing = not self.headless
         self.end_screen_showing = False
         self.end_screen_time = 0
         self.end_reason = None
@@ -191,19 +194,28 @@ class GameApp:
         max_attempts = NUM_WALLS * 20
         attempts = 0
 
-        # First two walls are guaranteed to be at the left and right edges to force more interesing maps
-        x = random.randint(1, BOARD_SIZE - 2)
-        y = random.randint(1, BOARD_SIZE - 2)
-        self.board[0][x] = "W"
-        self.items.append((0, x, "wall"))
-        self.board[BOARD_SIZE - 1][y] = "W"
-        self.items.append((BOARD_SIZE - 1, y, "wall"))
-        logger.debug(f"Placed initial walls at: (0, {x}) and ({BOARD_SIZE - 1}, {y})")
-        count = 2
+        # First two walls are guaranteed to be at the left and right edges to prevent hardcoded routes
+        a = random.randint(1, BOARD_SIZE - 2)
+        b = random.randint(1, BOARD_SIZE - 2)
+        self.board[0][a] = "W"
+        self.items.append((0, a, "wall"))
+        self.board[BOARD_SIZE - 1][b] = "W"
+        self.items.append((BOARD_SIZE - 1, b, "wall"))
+        # Third and fourth walls are placed randomly at the center zone of the board to add early complexity
+        random_coordinates = random.sample(range(BOARD_SIZE // 4, BOARD_SIZE * 3 // 4), 4)
+        x1, y1 = random_coordinates[2], random_coordinates[3]
+        x2, y2 = random_coordinates[0], random_coordinates[1]
+        self.board[x1][y1] = "W"
+        self.board[x2][y2] = "W"
+        logger.debug(f"Placed initial walls at: (0, {a}) and ({BOARD_SIZE - 1}, {b}) and ({x1}, {y1}) and ({x2}, {y2})")
         
+        # Initially placed wall count
+        count = 4
+        
+        # Place remaining walls with a bias towards clustering but ensuring connectivity
         while count < NUM_WALLS and attempts < max_attempts:
             attempts += 1
-            if count > 0 and random.random() < 0.4:
+            if count > 0 and random.random() < 0.7: # 70% chance to place wall adjacent to existing one for more natural layout
                 wall_positions = [(x, y) for y in range(BOARD_SIZE) for x in range(BOARD_SIZE) if self.board[x][y] == "W"]
                 random.shuffle(wall_positions)
                 placed = False
@@ -212,8 +224,20 @@ class GameApp:
                     random.shuffle(directions)
                     for dx, dy in directions:
                         nx, ny = wx + dx, wy + dy
+                        # Avoid placing wall outside the board or on starting/ending positions
                         if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                            # Avoid placing wall on starting/ending positions
                             if (nx, ny) not in [(0, 0), (BOARD_SIZE - 1, BOARD_SIZE - 1)] and self.board[nx][ny] == 0:
+                                # Avoid creating blocks of walls by checking adjacent cells
+                                count_adj = 0
+                                for ddx, ddy in directions:
+                                    adj_x, adj_y = nx + ddx, ny + ddy
+                                    if 0 <= adj_x < BOARD_SIZE and 0 <= adj_y < BOARD_SIZE:
+                                        if self.board[adj_x][adj_y] == "W":
+                                            count_adj += 1
+                                if count_adj > 1:
+                                    logger.debug(f"Skipping wall at ({nx}, {ny}) due to adjacent walls ({count_adj})")
+                                    continue  # Skip if more than one adjacent wall to avoid blocks
                                 self.board[nx][ny] = "W"
                                 if self._is_connected():
                                     self.items.append((nx, ny, "wall"))
@@ -227,6 +251,7 @@ class GameApp:
                 if placed:
                     continue
 
+            # Fallback to random placement if adjacent placement fails or by chance
             x = random.randint(0, BOARD_SIZE - 1)
             y = random.randint(0, BOARD_SIZE - 1)
             if (x, y) not in [(0, 0), (BOARD_SIZE - 1, BOARD_SIZE - 1)] and self.board[x][y] == 0:
@@ -366,6 +391,34 @@ class GameApp:
 
         self._draw_text(message, 'large', BLACK, width // 2, y_offset + CELL_SIZE * 5)
         self._draw_text("Press any key to exit...", 'small', GRAY, width // 2, y_offset + CELL_SIZE * 7)
+
+        pygame.display.flip()
+
+    def draw_start_screen(self):
+        if self.headless:
+            return
+        width = BOARD_SIZE * CELL_SIZE + 2 * INFO_PANEL_WIDTH
+        height = BOARD_SIZE * CELL_SIZE
+
+        self.screen.fill(DARK_BG)
+
+        self._draw_text("GRID DUEL", 'title', GOLD, width // 2, int(height * 0.12))
+        self._draw_text("Two players enter, one leaves.", 'medium', GRAY, width // 2, int(height * 0.22))
+
+        elf_img = self.images["Player 1 win"]
+        wizard_img = self.images["Player 2 win"]
+        elf_center_x = width // 4
+        wizard_center_x = width * 3 // 4
+        char_y = int(height * 0.55)
+        self._blit_centered(elf_img, elf_center_x, char_y)
+        self._blit_centered(wizard_img, wizard_center_x, char_y)
+
+        self._draw_text(f"Player 1 ({self.name1})", 'small', WHITE, elf_center_x, int(height * 0.78))
+        self._draw_text(f"Player 2 ({self.name2})", 'small', WHITE, wizard_center_x, int(height * 0.78))
+
+        now = pygame.time.get_ticks()
+        if (now // 500) % 2 == 0:
+            self._draw_text("Press any key to start...", 'small', GRAY, width // 2, int(height * 0.92))
 
         pygame.display.flip()
 
@@ -618,6 +671,20 @@ class GameApp:
             self.play_turn()
 
     def _run_gui(self):
+        while self.start_screen_showing:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if self.audio_enabled:
+                        self.lobby_theme.stop()
+                        self.main_theme.play(loops=-1)
+                    self.start_screen_showing = False
+            self.draw_start_screen()
+            self.clock.tick(30)
+
+        self.draw_board()
         next_turn_time = pygame.time.get_ticks() + DELAY_MS
         while True:
             for event in pygame.event.get():
