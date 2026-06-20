@@ -1,18 +1,20 @@
 import random
 from game_engine import GameApp
 
-def run_round(rcompetitors, third = False):
-    # Round of
+
+def next_power_of_2(n):
+    return 1 << (n - 1).bit_length() if n > 0 else 0
+
+
+def run_round(rcompetitors, random_agents, trial, headless, third=False):
     round_of = len(rcompetitors)
-    if round_of == 32:
-        print(f"+-------------- {'Round of 32':^18s} --------------+")
-    elif round_of == 16:
-        print(f"+-------------- {'Round of 16':^18s} --------------+")
+    if round_of >= 16:
+        print(f"+-------------- {'Round of ' + str(round_of):^18s} --------------+")
     elif round_of == 8:
         print(f"+-------------- {'Quarterfinals':^18s} --------------+")
     elif round_of == 4:
         print(f"+-------------- {'Semifinals':^18s} --------------+")
-    elif round_of == 2 and third == True:
+    elif round_of == 2 and third:
         print(f"+-------------- {'Third place':^18s} --------------+")
     else:
         print(f"+-------------- {'Final':^18s} --------------+")
@@ -38,9 +40,9 @@ def run_round(rcompetitors, third = False):
             print(f">>> Round {r} fight!")
             # Swap players for balance
             if r % 2 == 0:
-                app = GameApp(agent1, agent2, headless=True)
+                app = GameApp(agent1, agent2, headless=headless)
             else:
-                app = GameApp(agent2, agent1, headless=True)
+                app = GameApp(agent2, agent1, headless=headless)
             winner = app.get_winner()
             #winner = random.choice([agent1, agent2, None])
             if winner is not None:
@@ -56,14 +58,14 @@ def run_round(rcompetitors, third = False):
             # Balance is greater than rounds left
             if abs(balance) > rounds - r:
                 if balance < 0:
-                    if not trial and agent1.startswith("agent_rand"):
+                    if not trial and agent1 in random_agents:
                         print(f">>> Match ended: Victory of {agent2}*")
                         next_round.append(agent2)
                     else:
                         print(f">>> Match ended: Victory of {agent1}")
                         next_round.append(agent1)
                 else:
-                    if not trial and agent2.startswith("agent_rand"):
+                    if not trial and agent2 in random_agents:
                         print(f">>> Match ended: Victory of {agent1}*")
                         next_round.append(agent1)
                     else:
@@ -74,34 +76,62 @@ def run_round(rcompetitors, third = False):
     print("+", "-" * 48, "+", sep="")
     return next_round
 
-# Competition participants
-competitors = [
-    # Students
-    #"", ##    STUDENT NAMES GO HERE
-    # Default agents
+# Random agents pool (used as filler when needed)
+random_agents = [
     "agent_rand_defend",
     "agent_rand_objective",
     "agent_rand_hunt",
     "agent_rand_spell",
 ]
-# Flag to enable/disable random agents wining matches
-trial = True
+
+# Competition participants (students and custom agents only)
+competitors = [
+    # Students
+    "agent_bfs",
+    "agent_value_bfs",
+    "adefend",
+    "aobjective",
+    #"ahunt",
+    #"aspell",
+    # "aadefend",
+    # "aaobjective",
+    # "aahunt",
+    # "aaspell",
+    # "a01",
+    # "a02",
+    # "a03",
+    # "aa04",
+    # "aa01",
+    # "aa02",
+    # "aa03",
+    # "aa04",
+]
+
+# Flag to enable/disable random agents winning matches
+trial = False
+
+# Headless mode prompt
+headless = input("Run headless? (y/n): ").strip().lower() == 'y'
+
+# Pad to next power of 2 using random agents
+filled_competitors = list(competitors)
+target = next_power_of_2(len(filled_competitors))
+while len(filled_competitors) < target:
+    filled_competitors.append(random.choice(random_agents))
 
 # Randomized competitors list
 print("Shuffling agents...")
-rcompetitors = list(competitors)
+rcompetitors = list(filled_competitors)
 random.shuffle(rcompetitors)
 while True:
     for i in range(0, len(rcompetitors), 2):
         agent1, agent2 = rcompetitors[i], rcompetitors[i+1]
-        # Avoid random agent matches (if trial is disabled)
-        if not trial and agent1.startswith("agent_rand") and agent2.startswith("agent_rand"):
+        if not trial and agent1 in random_agents and agent2 in random_agents:
             print("Shuffling agents...")
             random.shuffle(rcompetitors)
-            #print(rcompetitors)
             break
     else:
-        break # No shuffle happened
+        break
 
 # List all players
 print(f"+-------------- {'Players':^18s} --------------+")
@@ -109,27 +139,31 @@ for i, player in enumerate(rcompetitors):
     print(f"| {i:2d}. {player:<42s} |")
 print("+", "-" * 48, "+", sep="")
 
-# Round of 16
-if len(rcompetitors) == 16:
-    rcompetitors = run_round(rcompetitors)
+# Run rounds dynamically until semifinals
+while len(rcompetitors) > 4:
+    rcompetitors = run_round(rcompetitors, random_agents, trial, headless)
 
-# Round of 8 (Quarterfinals)
-if len(rcompetitors) == 8:
-    rcompetitors = run_round(rcompetitors)
+if len(rcompetitors) == 2:
+    # Only a final, no third-place match needed
+    champion = run_round(rcompetitors, random_agents, trial, headless)
+    second = [c for c in rcompetitors if c not in champion][0]
+    print("Champion:", champion[0])
+    print("2nd place:", second)
+else:
+    # Semifinals (4 competitors → 2 finalists)
+    semifinalists = list(rcompetitors)
+    finalists = run_round(semifinalists, random_agents, trial, headless)
 
-# Round of 4 (Semifinals)
-if len(rcompetitors) == 4:
-    finalist = run_round(rcompetitors)
+    # Third place match (the 2 who lost in semifinals)
+    third_place_result = run_round(
+        [c for c in semifinalists if c not in finalists],
+        random_agents, trial, headless, third=True
+    )
 
-# Round of 2 (Third place)
-rcompetitors.remove(finalist[0])
-rcompetitors.remove(finalist[1])
-third = run_round(rcompetitors, third = True)
-
-# Round of 2 (Final)
-champion = run_round(finalist)
-finalist.remove(champion[0])
-print("Champion:", champion[0])
-print("2nd place:", finalist[0])
-print("3rd place:", third[0])
+    # Final
+    champion = run_round(finalists, random_agents, trial, headless)
+    finalists.remove(champion[0])
+    print("Champion:", champion[0])
+    print("2nd place:", finalists[0])
+    print("3rd place:", third_place_result[0])
 
