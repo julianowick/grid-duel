@@ -1,3 +1,4 @@
+import faulthandler
 import importlib
 import random
 import logging
@@ -13,7 +14,7 @@ NUM_WALLS = 20
 SPELL_TYPES = ["freeze", "speed", "invisibility"]
 SPELL_DURATION = 5
 MAX_TURNS = 120
-DELAY_MS = 500
+DELAY_MS = 50
 INFO_PANEL_WIDTH = CELL_SIZE * 8
 FONT_LARGE = CELL_SIZE
 FONT_MEDIUM = int(FONT_LARGE * 0.875)
@@ -36,8 +37,9 @@ GRAY = (128, 128, 128)
 GOLD = (212, 175, 55)
 DARK_BG = (25, 25, 40)
 
+faulthandler.enable()
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(levelname)s: %(message)s"
 )
 logger = logging.getLogger("grid_duel")
@@ -689,9 +691,15 @@ class GameApp:
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    logger.debug("DIAG: QUIT event received, scheduling faulthandler dump")
+                    sys.stdout.flush()
+                    faulthandler.dump_traceback_later(3, repeat=False)
                     self.cleanup()
                     return
                 if self.game_over and event.type == pygame.KEYDOWN:
+                    logger.debug("DIAG: KEYDOWN event received (game_over), scheduling faulthandler dump")
+                    sys.stdout.flush()
+                    faulthandler.dump_traceback_later(3, repeat=False)
                     self.cleanup()
                     return
 
@@ -705,8 +713,14 @@ class GameApp:
                     self.draw_end_screen()
                 elif now >= self.end_screen_time:
                     if self.audio_enabled:
+                        logger.debug("DIAG: stopping main_theme...")
+                        sys.stdout.flush()
                         self.main_theme.stop()
+                        logger.debug("DIAG: main_theme stopped, playing match_end (loops=-1)...")
+                        sys.stdout.flush()
                         self.match_end.play(loops=-1)
+                        logger.debug("DIAG: match_end play returned")
+                        sys.stdout.flush()
                     self.end_screen_showing = True
                 else:
                     self.draw_board()
@@ -720,13 +734,23 @@ class GameApp:
             self._run_gui()
 
     def cleanup(self):
+        logger.debug("CLEANUP: starting cleanup()")
+        sys.stdout.flush()
         if self.audio_enabled:
+            logger.debug("CLEANUP: calling pygame.mixer.stop()...")
+            sys.stdout.flush()
             pygame.mixer.stop()
+            logger.debug("CLEANUP: pygame.mixer.stop() returned")
+            sys.stdout.flush()
+        logger.debug("CLEANUP: calling pygame.quit()...")
+        sys.stdout.flush()
         pygame.quit()
+        logger.debug("CLEANUP: pygame.quit() returned")
+        sys.stdout.flush()
 
     def get_winner(self):
         return self.winner
 
 
 if __name__ == "__main__":
-    GameApp("agent_bfs", "agent_rand_defend")
+    GameApp("agent_value_bfs", "agent_value_bfs")
