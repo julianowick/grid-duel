@@ -14,7 +14,7 @@ NUM_WALLS = 20
 SPELL_TYPES = ["freeze", "speed", "invisibility"]
 SPELL_DURATION = 5
 MAX_TURNS = 120
-DELAY_MS = 50
+DELAY_MS = 200
 INFO_PANEL_WIDTH = CELL_SIZE * 8
 FONT_LARGE = CELL_SIZE
 FONT_MEDIUM = int(FONT_LARGE * 0.875)
@@ -37,12 +37,15 @@ GRAY = (128, 128, 128)
 GOLD = (212, 175, 55)
 DARK_BG = (25, 25, 40)
 
-faulthandler.enable()
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s"
 )
 logger = logging.getLogger("grid_duel")
+
+# Only enable faulthandler if in DEBUG mode
+if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+    faulthandler.enable()
 
 
 class GameApp:
@@ -64,8 +67,9 @@ class GameApp:
             logger.exception(f"Error importing agent: {e}")
             sys.exit(1)
 
-        self.name1 = agent1_module
-        self.name2 = agent2_module
+        # Remove module path from the name for display purposes
+        self.name1 = agent1_module.split('.')[-1]
+        self.name2 = agent2_module.split('.')[-1]
 
         self.images = {}
         if not self.headless:
@@ -693,13 +697,15 @@ class GameApp:
                 if event.type == pygame.QUIT:
                     logger.debug("DIAG: QUIT event received, scheduling faulthandler dump")
                     sys.stdout.flush()
-                    faulthandler.dump_traceback_later(3, repeat=False)
+                    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+                        faulthandler.dump_traceback_later(3, repeat=False)
                     self.cleanup()
                     return
                 if self.game_over and event.type == pygame.KEYDOWN:
                     logger.debug("DIAG: KEYDOWN event received (game_over), scheduling faulthandler dump")
                     sys.stdout.flush()
-                    faulthandler.dump_traceback_later(3, repeat=False)
+                    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+                        faulthandler.dump_traceback_later(3, repeat=False)
                     self.cleanup()
                     return
 
