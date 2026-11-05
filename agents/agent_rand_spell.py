@@ -5,7 +5,7 @@ def get_move(board, objective, position, enemy_position, my_strength, enemy_stre
     # Check for collected spells
     if available_spells:
         # 30% chance of activating a spell
-        if random.random() > 0.99:
+        if random.random() > 0.7:
             return random.choice(available_spells)
     
     # By default set objective to current objective

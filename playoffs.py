@@ -52,12 +52,27 @@ def run_match(agent1, agent2, random_agents, trial, headless, state):
         print(f">>> Resuming match from round {r}, balance {balance}")
 
     while r <= rounds:
+        # Prepend agents prefix to load module correctly
+        if not agent1.startswith("agents."):
+            agent1_module = "agents." + agent1
+        else:
+            agent1_module = agent1
+        if not agent2.startswith("agents."):
+            agent2_module = "agents." + agent2
+        else:
+            agent2_module = agent2
+
+        # Run the round
         print(f">>> Round {r} fight!")
         if r % 2 == 0:
-            app = GameApp(agent1, agent2, headless=headless)
+            app = GameApp(agent1_module, agent2_module, headless=headless)
         else:
-            app = GameApp(agent2, agent1, headless=headless)
+            app = GameApp(agent2_module, agent1_module, headless=headless)
         winner = app.get_winner()
+
+        # Remove prepended prefix for display
+        if winner.startswith("agents."):
+            winner = winner[len("agents."):]
 
         if winner is not None:
             print(f">>> And the winner is <{winner}>!")
@@ -197,16 +212,9 @@ def main():
         trial = False
 
         competitors = [
-            "agent_bfs",
-            "agent_value_bfs",
-            "a01",
-            "a02",
-            "a03",
-            "a04",
-            "aa01",
-            "aa02",
-            "aa03",
-            "aa04"
+            # List your agent module names here, e.g.:
+            "_agent_bfs",
+            "_agent_value_bfs",
         ]
 
         headless = input("Run headless? (y/n): ").strip().lower() == "y"
