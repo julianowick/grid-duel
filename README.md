@@ -6,7 +6,7 @@ A turn-based strategy game where two AI agents compete on a 16×16 board. Player
 
 - Two agents take turns moving around a procedurally generated board.
 - The board contains three types of items:
-  - **Secret Chests** (`C`) — grant spells: **invisibility**, **speed**, or **freeze**.
+  - **Secret Chests** (`C`) — grant spells: **invisibility**, **speed**, **freeze**, **teleport**, or **invincibility**.
   - **Buffs/Debuffs** (integers `-3` through `3`) — modify the player's strength.
   - **Walls** (`W`) — impassable obstacles.
 - A player wins by:
@@ -29,9 +29,10 @@ A turn-based strategy game where two AI agents compete on a 16×16 board. Player
 | `agents/agent_rand_objective.py` | Goal-oriented agent — moves toward the enemy base, 30% spell usage. |
 | `agents/agent_rand_spell.py` | Spell-seeking agent — overrides objective with the nearest chest, 1% spell usage. |
 | `audio/` | Game audio assets (`lobby-theme.mp3`, `main-theme.mp3`, `match-end.mp3`). |
-| `figures/` | 24 PNG sprite images for players, items, spells, board elements, UI, and end screen. |
+| `figures/` | 26 PNG sprite images for players, items, spells, board elements, UI, and end screen. |
 | `fonts/` | MedievalSharp font used for in-game text. |
 | `playoffs_state.json` | Auto-generated tournament save file (git-ignored). |
+| `tests/` | Pytest suite for spell mechanics (`python -m pytest tests`). |
 | `AGENTS.md` | Detailed guide for creating new agents (API reference, argument table, return values). |
 
 ## Requirements
@@ -92,12 +93,12 @@ def get_move(board, objective, position, enemy_position,
 | `enemy_position` | `(x, y)` | Opponent's position (`(-1, -1)` when invisible). |
 | `my_strength` | `int` | Your accumulated strength. |
 | `enemy_strength` | `int` | Opponent's accumulated strength. |
-| `available_spells` | `tuple` of `str` | Spells you hold — `"freeze"`, `"speed"`, `"invisibility"`. |
+| `available_spells` | `tuple` of `str` | Spells you hold — `"freeze"`, `"speed"`, `"invisibility"`, `"teleport"`, `"invincibility"`. |
 | `memory` | `list` | Persistent state across turns (starts empty). |
 
 **Return value** — one of:
 - **Direction**: `"up"`, `"down"`, `"left"`, `"right"`, or `"stay"`.
-- **Spell**: any string present in `available_spells` (e.g., `"freeze"`). The spell is consumed and applied for 5 turns.
+- **Spell**: any string present in `available_spells` (e.g., `"freeze"`). The spell is consumed and applied (5 turns, or a 2-round channel for `teleport`).
 
 **Register your agent** by placing the `.py` file in the `agents/` folder and passing `agents.<name>` to `GameApp`, or adding `<name>` to the `competitors` list in `playoffs.py`.
 

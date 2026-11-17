@@ -11,8 +11,11 @@ CELL_SIZE = 32
 NUM_ITEMS = 20
 ITEM_VALUES = [-3, -2, -1, 1, 2, 3]
 NUM_WALLS = 20
-SPELL_TYPES = ["freeze", "speed", "invisibility"]
+SPELL_TYPES = ["freeze", "speed", "invisibility", "teleport", "invincibility"]
 SPELL_DURATION = 5
+# Teleport is a 2-round channel; every other spell lasts SPELL_DURATION turns.
+SPELL_DURATIONS = {spell: SPELL_DURATION for spell in SPELL_TYPES}
+SPELL_DURATIONS["teleport"] = 2
 MAX_TURNS = 120
 DELAY_MS = 200
 INFO_PANEL_WIDTH = CELL_SIZE * 8
@@ -31,6 +34,10 @@ SPEED_COLOR = (255, 124, 124)
 FREEZE_COLOR = (116, 248, 255)
 INVISIBLE_ALPHA = 128
 FREEZE_ALPHA = 128
+TELEPORT_COLOR = (170, 90, 255)
+TELEPORT_ALPHA = 128
+SHIELD_COLOR = (255, 200, 40)
+SPELL_ROW_H = 24  # HUD row height; fits all 5 spells in the side panel
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GRAY = (128, 128, 128)
@@ -129,6 +136,8 @@ class GameApp:
             "freeze": load("figures/freeze.png", isz),
             "speed": load("figures/speed.png", isz),
             "invisibility": load("figures/invisibility.png", isz),
+            "teleport": load("figures/teleport.png", isz),
+            "invincibility": load("figures/invincibility.png", isz),
             "duel": load("figures/duel.png", rsz),
             "base": load("figures/trophy.png", rsz),
             "timeout": load("figures/clock.png", rsz),
@@ -158,15 +167,19 @@ class GameApp:
         self.items = []
         self.spells = []
         self.spell_durations = {}
+        # Counters are global (not per player): this is safe because each spell
+        # has exactly one chest per game, so it is cast at most once.
         for spell in SPELL_TYPES:
-            self.spell_durations[spell] = SPELL_DURATION
+            self.spell_durations[spell] = SPELL_DURATIONS[spell]
         self.place_walls()
         self.place_items()
         self.place_spells()
 
         self.pos1 = (0, 0)
+        self.home1 = self.pos1
         self.obj1 = (BOARD_SIZE - 1, BOARD_SIZE - 1)
         self.pos2 = (BOARD_SIZE - 1, BOARD_SIZE - 1)
+        self.home2 = self.pos2
         self.obj2 = (0, 0)
         self.strength1 = 0
         self.strength2 = 0
@@ -330,7 +343,9 @@ class GameApp:
             s = True
         elif "freeze" in self.active_spells2:
             f = True
-        self.draw_player(self.pos1, "Player 1", invisible=i, speed=s, freeze=f)
+        self.draw_player(self.pos1, "Player 1", invisible=i, speed=s, freeze=f,
+                         teleport="teleport" in self.active_spells1,
+                         shield="invincibility" in self.active_spells1)
 
         i, s, f = False, False, False
         if "invisibility" in self.active_spells2:
@@ -339,7 +354,9 @@ class GameApp:
             s = True
         elif "freeze" in self.active_spells1:
             f = True
-        self.draw_player(self.pos2, "Player 2", invisible=i, speed=s, freeze=f)
+        self.draw_player(self.pos2, "Player 2", invisible=i, speed=s, freeze=f,
+                         teleport="teleport" in self.active_spells2,
+                         shield="invincibility" in self.active_spells2)
 
         img = self.images["Player 1 base"]
         cx = INFO_PANEL_WIDTH + self.obj2[0] * CELL_SIZE + CELL_SIZE // 2
@@ -428,7 +445,7 @@ class GameApp:
 
         pygame.display.flip()
 
-    def draw_player(self, pos, image_key, invisible=False, speed=False, freeze=False):
+    def draw_player(self, pos, image_key, invisible=False, speed=False, freeze=False, teleport=False, shield=False):
         gx, gy = pos
         cell_x = INFO_PANEL_WIDTH + gx * CELL_SIZE
         cell_y = gy * CELL_SIZE
@@ -451,6 +468,14 @@ class GameApp:
             s.fill((*WHITE, INVISIBLE_ALPHA))
             self.screen.blit(s, (cell_x, cell_y))
 
+        if teleport:
+            s = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+            s.fill((*TELEPORT_COLOR, TELEPORT_ALPHA))
+            self.screen.blit(s, (cell_x, cell_y))
+
+        if shield:
+            pygame.draw.rect(self.screen, SHIELD_COLOR, (cell_x, cell_y, CELL_SIZE, CELL_SIZE), 3)
+
     def draw_player_info(self):
         w = INFO_PANEL_WIDTH
 
@@ -465,9 +490,9 @@ class GameApp:
             self._draw_text("> Your Turn", 'small', BLACK, cx, CELL_SIZE * 9)
         self._draw_text("Collected Spells:", 'small', BLACK, cx, CELL_SIZE * 11)
         for i, spell in enumerate(self.spells1):
-            self._draw_text(f"- {spell}", 'small', BLACK, cx, CELL_SIZE * 12 + i * CELL_SIZE)
+            self._draw_text(f"- {spell}", 'small', BLACK, cx, CELL_SIZE * 12 + i * SPELL_ROW_H)
             spell_img = self.images[spell]
-            self._blit_centered(spell_img, cx - CELL_SIZE * 2, CELL_SIZE * 12 + i * CELL_SIZE)
+            self._blit_centered(spell_img, cx - CELL_SIZE * 2, CELL_SIZE * 12 + i * SPELL_ROW_H)
 
         x0 = w + BOARD_SIZE * CELL_SIZE
         pygame.draw.rect(self.screen, PANEL_BG, (x0, 0, w, BOARD_SIZE * CELL_SIZE))
@@ -481,9 +506,9 @@ class GameApp:
             self._draw_text("> Your Turn", 'small', BLACK, cx, CELL_SIZE * 9)
         self._draw_text("Collected Spells:", 'small', BLACK, cx, CELL_SIZE * 11)
         for i, spell in enumerate(self.spells2):
-            self._draw_text(f"- {spell}", 'small', BLACK, cx, CELL_SIZE * 12 + i * CELL_SIZE)
+            self._draw_text(f"- {spell}", 'small', BLACK, cx, CELL_SIZE * 12 + i * SPELL_ROW_H)
             spell_img = self.images[spell]
-            self._blit_centered(spell_img, cx - CELL_SIZE * 2, CELL_SIZE * 12 + i * CELL_SIZE)
+            self._blit_centered(spell_img, cx - CELL_SIZE * 2, CELL_SIZE * 12 + i * SPELL_ROW_H)
 
     def get_safe_move(self, agent_func, state):
         try:
@@ -559,6 +584,7 @@ class GameApp:
                 self.end_screen_time = pygame.time.get_ticks() + DELAY_MS * 2
             return
 
+        teleporting = [False, False]  # channel finished this round -> move home at round end
         for i, (agent, pos, opp_pos, str_self, str_opp, memory, obj, available_spells, active_spells) in enumerate([
             (self.agent1, self.pos1, self.pos2, self.strength1, self.strength2, self.player1_memory, self.obj1, self.spells1, self.active_spells1),
             (self.agent2, self.pos2, self.pos1, self.strength2, self.strength1, self.player2_memory, self.obj2, self.spells2, self.active_spells2),
@@ -601,6 +627,16 @@ class GameApp:
                 opp_pos = (-1, -1)
                 if self.spell_durations["invisibility"] == 0:
                     self.active_spells1.remove("invisibility")
+
+            # Teleport channel: like freeze, the agent is not asked for a move.
+            # It stays in place (and duel-vulnerable) until the end of the 2nd round.
+            if "teleport" in active_spells:
+                self.spell_durations["teleport"] -= 1
+                logger.info(f"Player {i+1} is channeling teleport ({self.spell_durations['teleport']} round(s) left)")
+                if self.spell_durations["teleport"] <= 0:
+                    active_spells.remove("teleport")
+                    teleporting[i] = True
+                continue
 
             state = {
                 "position": pos,
@@ -655,7 +691,16 @@ class GameApp:
             if (dx, dy) in ((0, 0), (0, 1), (1, 0), (1, 1)):
                 logger.info(f"Duel at {self.pos1} (Player 1) - {self.pos2} (Player 2)!")
                 self.draw_board()
-                duel_winner = self.resolve_duel(self.strength1, self.strength2)
+                shield1 = "invincibility" in self.active_spells1
+                shield2 = "invincibility" in self.active_spells2
+                if shield1 and not shield2:
+                    logger.info("Player 1 is invincible!")
+                    duel_winner = "Player 1"
+                elif shield2 and not shield1:
+                    logger.info("Player 2 is invincible!")
+                    duel_winner = "Player 2"
+                else:
+                    duel_winner = self.resolve_duel(self.strength1, self.strength2)
                 if duel_winner == "Player 1":
                     logger.info("Player 1 wins the duel!")
                     self.winner = self.name1
@@ -668,6 +713,21 @@ class GameApp:
                 if not self.headless:
                     self.end_screen_time = pygame.time.get_ticks() + DELAY_MS * 2
                 return
+
+        # End of round: finished teleports land on the caster's base.
+        if teleporting[0]:
+            self.pos1 = self.home1
+            logger.info(f"Player 1 teleported to base {self.home1}")
+        if teleporting[1]:
+            self.pos2 = self.home2
+            logger.info(f"Player 2 teleported to base {self.home2}")
+
+        # Invincibility ticks once per round, after the duel check.
+        for active in (self.active_spells1, self.active_spells2):
+            if "invincibility" in active:
+                self.spell_durations["invincibility"] -= 1
+                if self.spell_durations["invincibility"] <= 0:
+                    active.remove("invincibility")
 
         self.turn += 1
         self.draw_board()

@@ -6,7 +6,7 @@ The game involves two characters moving around a board collecting items, engagin
 
 * Two players move alternately around a board.
 * There are three types of items scattered around:
-  * **Secret Chests**: These are magical items that provide extraordinary abilities of **invisibility**, **speed**, and **freezing** to the characters (value 'C').
+  * **Secret Chests**: These are magical items that provide extraordinary abilities of **invisibility**, **speed**, **freezing**, **teleport** (return to base) and **invincibility** (immune to losing duels) to the characters (value 'C').
 
   * **Buff/Debuff**: These are items that increase or decrease the player's strength (values ​​3, 2, 1, -1, -2, and -3).
 
@@ -22,7 +22,7 @@ The game involves two characters moving around a board collecting items, engagin
 
 | File/Folder | Description |
 |---|---|
-| `game_engine.py` | Core game engine — board generation, turn processing, spell system (freeze/speed/invisibility), duel resolution, victory conditions, pygame-based rendering with sprite assets, and `pygame.mixer` audio playback for match music. |
+| `game_engine.py` | Core game engine — board generation, turn processing, spell system (freeze/speed/invisibility/teleport/invincibility), duel resolution, victory conditions, pygame-based rendering with sprite assets, and `pygame.mixer` audio playback for match music. |
 | `playoffs.py` | Tournament bracket orchestrator — shuffles agents, runs best-of-3 matches with player-swapping for fairness, prints bracket progression, and determines the champion. Saves progress to `playoffs_state.json` so an interrupted tournament can be resumed. |
 | `agents/` | Package holding all agent modules (loaded as `agents.<name>`). |
 | `agents/agent_bfs.py` | BFS pathfinding agent — computes the shortest path to the objective and uses spells strategically at close range. |
@@ -33,9 +33,22 @@ The game involves two characters moving around a board collecting items, engagin
 | `agents/agent_rand_spell.py` | Spell-seeking agent — overrides objective with the nearest chest, doubles directional bias toward it, uses spells only 1% of the time. |
 | `audio/` | Audio assets — `lobby-theme.mp3` (lobby music), `main-theme.mp3` (background music, loops during a match) and `match-end.mp3` (end-of-match sound, loops on the end screen). Played via `pygame.mixer`. |
 | `fonts/` | MedievalSharp font used for in-game text. |
-| `figures/` | 24 PNG sprite images for players (elf/wizard), items (buffs, debuffs), spells (freeze/speed/invisibility), board elements (wall, chest), UI icons, and end-screen art. |
+| `figures/` | 26 PNG sprite images for players (elf/wizard), items (buffs, debuffs), spells (freeze/speed/invisibility/teleport/invincibility), board elements (wall, chest), UI icons, and end-screen art. |
 | `README.md` | Project overview, setup and usage instructions. |
+| `tests/` | Pytest suite (`python -m pytest tests`) covering the teleport and invincibility spells. |
 | `.gitignore` | Git ignore rules — excludes listed files and folders (e.g. `__pycache__`, `playoffs_state.json`) from version control. |
+
+## Spells
+
+Each chest holds exactly one spell, and there is one chest per spell (5 per game). Picking up a chest consumes it. Casting a spell uses the caster's whole turn.
+
+| Spell | Effect |
+|---|---|
+| `freeze` | The opponent skips their turns (`get_move` is not called) for 5 turns. |
+| `speed` | The caster gets extra moves — the opponent loses their move on alternating rounds for 5 skipped turns. |
+| `invisibility` | The opponent sees `enemy_position == (-1, -1)` for 5 turns, and no duels happen while it is active. |
+| `teleport` | A 2-round channel: `get_move` is **not** called for the next 2 rounds and the caster stays in place, fully vulnerable to duels. At the end of the 2nd round the caster is moved to their own base. |
+| `invincibility` | A shield for 5 rounds (the cast round counts as the 1st). If a duel happens while one player is shielded, that player wins. |
 
 ## Developing New Agents
 
@@ -55,14 +68,14 @@ def get_move(board, objective, position, enemy_position, my_strength, enemy_stre
 | `enemy_position` | `tuple` `(x, y)` | The opponent's current position. Set to `(-1, -1)` when the opponent is invisible. |
 | `my_strength` | `int` | The agent's accumulated strength (sum of collected buffs/debuffs). |
 | `enemy_strength` | `int` | The opponent's accumulated strength. |
-| `available_spells` | `tuple` of `str` | Spells the agent has collected and may activate. Possible values: `"freeze"`, `"speed"`, `"invisibility"`. |
+| `available_spells` | `tuple` of `str` | Spells the agent has collected and may activate. Possible values: `"freeze"`, `"speed"`, `"invisibility"`, `"teleport"`, `"invincibility"`. |
 | `memory` | `list` | Persists across turns — starts empty (`[]`). Use to store arbitrary data (e.g., initial position, path history). |
 
 ### Return value
 
 Return one of the following:
 - **Movement direction** — `"up"`, `"down"`, `"left"`, `"right"`, or `"stay"`. The engine validates the move and clamps coordinates to the board bounds; wall collisions are ignored (position stays unchanged).
-- **Spell activation** — any string present in `available_spells` (e.g., `"freeze"`, `"speed"`, `"invisibility"`). The spell is consumed from `available_spells` and applied immediately for a duration of 5 turns.
+- **Spell activation** — any string present in `available_spells` (e.g., `"freeze"`, `"speed"`, `"invisibility"`). The spell is consumed from `available_spells` and applied immediately for a duration of 5 turns (`teleport` is a 2-round channel instead; see **Spells** below).
 
 ### Registering an agent
 
