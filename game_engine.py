@@ -759,4 +759,4 @@ class GameApp:
 
 
 if __name__ == "__main__":
-    GameApp("agent_value_bfs", "agent_value_bfs")
+    GameApp("agents.agent_value_bfs", "agents.agent_rand_defend")
