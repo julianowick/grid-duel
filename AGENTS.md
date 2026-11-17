@@ -22,15 +22,20 @@ The game involves two characters moving around a board collecting items, engagin
 
 | File/Folder | Description |
 |---|---|
-| `game_engine.py` | Core game engine — board generation, turn processing, spell system (freeze/speed/invisibility), duel resolution, victory conditions, Tkinter-based rendering with sprite assets, and `pygame.mixer` audio playback for match music. |
-| `playoffs.py` | Tournament bracket orchestrator — shuffles agents, runs best-of-3 matches with player-swapping for fairness, prints bracket progression, and determines the champion. |
-| `agent_rand_defend.py` | Defensive agent — guards its own starting position, biases moves toward home, has a 30% chance of using spells. |
-| `agent_rand_hunt.py` | Aggressive pursuit agent — chases the enemy's current position with doubled directional weight, has a 70% chance of activating spells. |
-| `agent_rand_objective.py` | Goal-oriented agent — moves toward the assigned objective (enemy's base), has a 30% chance of using spells. |
-| `agent_rand_spell.py` | Spell-seeking agent — overrides objective with the nearest chest, doubles directional bias toward it, uses spells only 1% of the time. |
-| `audio/` | Audio assets — `main-theme.mp3` (background music, loops during a match) and `match-end.mp3` (end-of-match sound, loops on the end screen). Played via `pygame.mixer`. |
+| `game_engine.py` | Core game engine — board generation, turn processing, spell system (freeze/speed/invisibility), duel resolution, victory conditions, pygame-based rendering with sprite assets, and `pygame.mixer` audio playback for match music. |
+| `playoffs.py` | Tournament bracket orchestrator — shuffles agents, runs best-of-3 matches with player-swapping for fairness, prints bracket progression, and determines the champion. Saves progress to `playoffs_state.json` so an interrupted tournament can be resumed. |
+| `agents/` | Package holding all agent modules (loaded as `agents.<name>`). |
+| `agents/agent_bfs.py` | BFS pathfinding agent — computes the shortest path to the objective and uses spells strategically at close range. |
+| `agents/agent_value_bfs.py` | Value-weighted pathfinding agent — Dijkstra-style search where buffs/chests lower path cost (and debuffs raise it), with the weight scaled by distance to the objective; uses spells at close range. |
+| `agents/agent_rand_defend.py` | Defensive agent — guards its own starting position, biases moves toward home, has a 30% chance of using spells. |
+| `agents/agent_rand_hunt.py` | Aggressive pursuit agent — chases the enemy's current position with doubled directional weight, has a 70% chance of activating spells. |
+| `agents/agent_rand_objective.py` | Goal-oriented agent — moves toward the assigned objective (enemy's base), has a 30% chance of using spells. |
+| `agents/agent_rand_spell.py` | Spell-seeking agent — overrides objective with the nearest chest, doubles directional bias toward it, uses spells only 1% of the time. |
+| `audio/` | Audio assets — `lobby-theme.mp3` (lobby music), `main-theme.mp3` (background music, loops during a match) and `match-end.mp3` (end-of-match sound, loops on the end screen). Played via `pygame.mixer`. |
+| `fonts/` | MedievalSharp font used for in-game text. |
 | `figures/` | 24 PNG sprite images for players (elf/wizard), items (buffs, debuffs), spells (freeze/speed/invisibility), board elements (wall, chest), UI icons, and end-screen art. |
-| `.gitignore` | Git ignore rules — excludes listed files and folders from version control. |
+| `README.md` | Project overview, setup and usage instructions. |
+| `.gitignore` | Git ignore rules — excludes listed files and folders (e.g. `__pycache__`, `playoffs_state.json`) from version control. |
 
 ## Developing New Agents
 
@@ -61,4 +66,7 @@ Return one of the following:
 
 ### Registering an agent
 
-Place the file in the project root (e.g., `my_agent.py`) and reference it by module name (without `.py` suffix) when running matches or playoffs.
+Place the file in the `agents/` folder (e.g., `agents/my_agent.py`).
+
+- When calling the engine directly, pass the full module path: `GameApp("agents.my_agent", "agents.agent_rand_defend")`.
+- In `playoffs.py`, list the bare module name (e.g., `"my_agent"`) in the `competitors` list; the `agents.` prefix is added automatically.

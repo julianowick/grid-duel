@@ -19,16 +19,19 @@ A turn-based strategy game where two AI agents compete on a 16×16 board. Player
 
 | Path | Description |
 |---|---|
-| `game_engine.py` | Core engine: board generation, turn processing, spell system, duel resolution, victory conditions, Tkinter rendering with sprite assets, and `pygame.mixer` audio. |
-| `playoffs.py` | Tournament bracket orchestrator — shuffles agents, runs best-of-3 matches with player-swapping for fairness, prints bracket progression, and determines the champion. |
-| `agent_bfs.py` | BFS pathfinding agent — computes shortest path to objective and uses spells strategically at close range. |
-| `agent_rand_defend.py` | Defensive agent — guards its start position, biases toward home, 30% spell usage. |
-| `agent_rand_hunt.py` | Aggressive pursuit agent — chases the enemy with double directional weight, 70% spell usage. |
-| `agent_rand_objective.py` | Goal-oriented agent — moves toward the enemy base, 30% spell usage. |
-| `agent_rand_spell.py` | Spell-seeking agent — overrides objective with the nearest chest, 1% spell usage. |
-| `audio/` | Game audio assets (`main-theme.mp3`, `match-end.mp3`). |
+| `game_engine.py` | Core engine: board generation, turn processing, spell system, duel resolution, victory conditions, pygame rendering with sprite assets, and `pygame.mixer` audio. |
+| `playoffs.py` | Tournament bracket orchestrator — shuffles agents, runs best-of-3 matches with player-swapping for fairness, prints bracket progression, and determines the champion. Progress is saved to `playoffs_state.json` so a tournament can be resumed. |
+| `agents/` | Agent modules (loaded as `agents.<name>`). |
+| `agents/agent_bfs.py` | BFS pathfinding agent — computes shortest path to objective and uses spells strategically at close range. |
+| `agents/agent_value_bfs.py` | Value-weighted pathfinding agent — Dijkstra-style search favoring buffs/chests and avoiding debuffs, with weights scaled by distance to the objective. |
+| `agents/agent_rand_defend.py` | Defensive agent — guards its start position, biases toward home, 30% spell usage. |
+| `agents/agent_rand_hunt.py` | Aggressive pursuit agent — chases the enemy with double directional weight, 70% spell usage. |
+| `agents/agent_rand_objective.py` | Goal-oriented agent — moves toward the enemy base, 30% spell usage. |
+| `agents/agent_rand_spell.py` | Spell-seeking agent — overrides objective with the nearest chest, 1% spell usage. |
+| `audio/` | Game audio assets (`lobby-theme.mp3`, `main-theme.mp3`, `match-end.mp3`). |
 | `figures/` | 24 PNG sprite images for players, items, spells, board elements, UI, and end screen. |
 | `fonts/` | MedievalSharp font used for in-game text. |
+| `playoffs_state.json` | Auto-generated tournament save file (git-ignored). |
 | `AGENTS.md` | Detailed guide for creating new agents (API reference, argument table, return values). |
 
 ## Requirements
@@ -42,12 +45,12 @@ A turn-based strategy game where two AI agents compete on a 16×16 board. Player
 python game_engine.py
 ```
 
-By default the engine runs `agent_bfs` vs `agent_rand_defend`. To use custom agents, modify the `__main__` block at the bottom of `game_engine.py` or import `GameApp` from another script:
+By default the engine runs `agents.agent_value_bfs` vs `agents.agent_rand_defend`. To use custom agents, modify the `__main__` block at the bottom of `game_engine.py` or import `GameApp` from another script (agent modules are passed with the `agents.` prefix):
 
 ```python
 from game_engine import GameApp
 
-GameApp("my_agent", "agent_rand_objective")
+GameApp("agents.my_agent", "agents.agent_rand_objective")
 ```
 
 ### Headless mode (no GUI)
@@ -55,22 +58,22 @@ GameApp("my_agent", "agent_rand_objective")
 Useful for tournaments or automated testing:
 
 ```python
-GameApp("my_agent", "agent_rand_objective", headless=True)
+GameApp("agents.my_agent", "agents.agent_rand_objective", headless=True)
 ```
 
 ## Running a Tournament
 
-Edit the `competitors` list in `playoffs.py` to include your agents, then run:
+Edit the `competitors` list in `playoffs.py` to include your agents (bare module names, e.g. `"my_agent"` — the `agents.` prefix is added automatically), then run:
 
 ```bash
 python playoffs.py
 ```
 
-The tournament runs best-of-3 matches, alternating player sides for fairness.
+The tournament runs best-of-3 matches, alternating player sides for fairness. If the competitor count isn't a power of 2, the bracket is padded with random agents. Progress is saved to `playoffs_state.json`; on the next launch you'll be asked whether to resume.
 
 ## Creating a New Agent
 
-Each agent is a Python file in the project root that implements a single function:
+Each agent is a Python file in the `agents/` folder that implements a single function:
 
 ```python
 def get_move(board, objective, position, enemy_position,
@@ -96,6 +99,6 @@ def get_move(board, objective, position, enemy_position,
 - **Direction**: `"up"`, `"down"`, `"left"`, `"right"`, or `"stay"`.
 - **Spell**: any string present in `available_spells` (e.g., `"freeze"`). The spell is consumed and applied for 5 turns.
 
-**Register your agent** by placing the `.py` file in the project root and passing its module name (without `.py`) to `GameApp` or adding it to the `competitors` list in `playoffs.py`.
+**Register your agent** by placing the `.py` file in the `agents/` folder and passing `agents.<name>` to `GameApp`, or adding `<name>` to the `competitors` list in `playoffs.py`.
 
 > For a detailed walkthrough with examples, see [`AGENTS.md`](AGENTS.md).
