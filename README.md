@@ -39,6 +39,7 @@ A turn-based strategy game where two AI agents compete on a 16×16 board. Player
 
 - Python 3.8+
 - `pygame` — install with `pip install pygame`
+- Audio on Linux: the engine defaults `SDL_AUDIODRIVER` to `pipewire,pulseaudio,alsa`, because SDL's PulseAudio backend can deadlock on exit and freeze the app after a match. Set `SDL_AUDIODRIVER` yourself to override.
 
 ## Running a Match
 

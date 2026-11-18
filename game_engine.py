@@ -2,7 +2,15 @@ import faulthandler
 import importlib
 import random
 import logging
+import os
 import sys
+
+# On Linux, SDL's PulseAudio backend (including PulseAudio-on-PipeWire) can deadlock
+# inside pygame.quit() / audio device close, freezing the app after a match and
+# leaving the music silent. Prefer SDL's native PipeWire driver and fall back to
+# the others. Must be set before pygame is imported. A user-set value wins.
+if sys.platform.startswith("linux"):
+    os.environ.setdefault("SDL_AUDIODRIVER", "pipewire,pulseaudio,alsa")
 
 import pygame
 
