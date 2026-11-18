@@ -25,7 +25,7 @@ SPELL_DURATION = 5
 SPELL_DURATIONS = {spell: SPELL_DURATION for spell in SPELL_TYPES}
 SPELL_DURATIONS["teleport"] = 2
 MAX_TURNS = 120
-DELAY_MS = 200
+DELAY_MS = os.environ.get("GRID_DUEL_DELAY_MS", 500)
 INFO_PANEL_WIDTH = CELL_SIZE * 8
 FONT_LARGE = CELL_SIZE
 FONT_MEDIUM = int(FONT_LARGE * 0.875)
@@ -344,25 +344,17 @@ class GameApp:
             cy = gy * CELL_SIZE + CELL_SIZE // 2
             self._blit_centered(img, cx, cy)
 
-        i, s, f = False, False, False
-        if "invisibility" in self.active_spells1:
-            i = True
-        elif "speed" in self.active_spells1:
-            s = True
-        elif "freeze" in self.active_spells2:
-            f = True
-        self.draw_player(self.pos1, "Player 1", invisible=i, speed=s, freeze=f,
+        self.draw_player(self.pos1, "Player 1", 
+                         invisible="invisibility" in self.active_spells1, 
+                         speed="speed" in self.active_spells1, 
+                         freeze="freeze" in self.active_spells2,
                          teleport="teleport" in self.active_spells1,
                          shield="invincibility" in self.active_spells1)
 
-        i, s, f = False, False, False
-        if "invisibility" in self.active_spells2:
-            i = True
-        elif "speed" in self.active_spells2:
-            s = True
-        elif "freeze" in self.active_spells1:
-            f = True
-        self.draw_player(self.pos2, "Player 2", invisible=i, speed=s, freeze=f,
+        self.draw_player(self.pos2, "Player 2", 
+                         invisible="invisibility" in self.active_spells2, 
+                         speed="speed" in self.active_spells2, 
+                         freeze="freeze" in self.active_spells1,
                          teleport="teleport" in self.active_spells2,
                          shield="invincibility" in self.active_spells2)
 
